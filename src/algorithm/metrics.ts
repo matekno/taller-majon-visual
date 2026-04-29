@@ -8,7 +8,7 @@ export function groupSizes(assignment: Assignment): number[] {
 }
 
 export function prefScore(talmidim: Talmid[], assignment: Assignment): number {
-  if (talmidim.length === 0) return 0
+  if (talmidim.length === 0 || assignment.length !== talmidim.length) return 0
   let sum = 0
   for (let i = 0; i < talmidim.length; i++) {
     sum += talmidim[i].scores[assignment[i]] || 0
@@ -28,7 +28,7 @@ export function eqScore(assignment: Assignment): number {
 }
 
 export function mixScore(talmidim: Talmid[], assignment: Assignment): number {
-  if (talmidim.length === 0) return 1
+  if (talmidim.length === 0 || assignment.length !== talmidim.length) return 1
   const allKitot = new Set(talmidim.map((t) => t.kita))
   const K = allKitot.size
   if (K <= 1) return 1
