@@ -10,11 +10,20 @@ import { WeightsPanel } from './components/WeightsPanel'
 import { TallerColumn } from './components/TallerColumn'
 import { TalmidCard } from './components/TalmidCard'
 import { StatsPanel } from './components/StatsPanel'
+import { SaveLoadPanel } from './components/SaveLoadPanel'
 import { buildKitaColorMap } from './utils/colors'
+import { encodeConfig, decodeConfig, buildReconciled } from './utils/configCode'
+import type { SavedConfig } from './utils/configCode'
 
 const DEFAULT_KITA_STYLE = { bg: 'bg-slate-100', text: 'text-slate-800', dot: 'bg-slate-400' }
 
 const DEFAULT_WEIGHTS: Weights = { preferencia: 70, equidad: 20, mezclaKitot: 70 }
+
+function readConfigFromHash(): SavedConfig | null {
+  const hash = window.location.hash
+  if (!hash.startsWith('#c=')) return null
+  return decodeConfig(hash.slice(3))
+}
 
 export default function App() {
   const [talmidim, setTalmidim] = useState<Talmid[]>([])
@@ -25,6 +34,8 @@ export default function App() {
   const [assignment, setAssignment] = useState<Assignment>([])
   const warmStartRef = useRef<Assignment>([])
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
+  const [savedConfig, setSavedConfig] = useState<SavedConfig | null>(readConfigFromHash)
+  const [showPanel, setShowPanel] = useState(false)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   function handleDragStart({ active }: DragStartEvent) {
@@ -42,6 +53,11 @@ export default function App() {
     next[talmidIdx] = newTaller
     warmStartRef.current = next
     setAssignment(next)
+    // Pin the dragged talmid to the new position in the saved config
+    if (savedConfig) {
+      const t = talmidim[talmidIdx]
+      setSavedConfig({ ...savedConfig, [`${t.nombre}|${t.kita}`]: newTaller })
+    }
   }
 
   async function load() {
@@ -68,16 +84,25 @@ export default function App() {
       setAssignment([])
       return
     }
+    let warmStart: Assignment | undefined
+    let pinned: boolean[] | undefined
+
+    if (savedConfig) {
+      const reconciled = buildReconciled(talmidim, savedConfig)
+      warmStart = reconciled.warmStart
+      pinned = reconciled.pinned
+    } else {
+      warmStart =
+        warmStartRef.current.length === talmidim.length ? warmStartRef.current : undefined
+    }
+
     const handle = setTimeout(() => {
-      const newAssignment = solveAssignment(talmidim, weights, {
-        warmStart: warmStartRef.current.length === talmidim.length ? warmStartRef.current : undefined,
-        seed: 42,
-      })
+      const newAssignment = solveAssignment(talmidim, weights, { warmStart, pinned, seed: 42 })
       warmStartRef.current = newAssignment
       setAssignment(newAssignment)
     }, 50)
     return () => clearTimeout(handle)
-  }, [talmidim, weights])
+  }, [talmidim, weights, savedConfig])
 
   const breakdown = useMemo(
     () => evaluate(talmidim, assignment, weights),
@@ -98,6 +123,30 @@ export default function App() {
     return groups
   }, [talmidim, assignment])
 
+  function handleSave() {
+    if (talmidim.length === 0) return
+    const code = encodeConfig(talmidim, assignment)
+    window.location.hash = `#c=${code}`
+    setSavedConfig(decodeConfig(code))
+    setShowPanel(true)
+  }
+
+  function handleLoadConfig(config: SavedConfig) {
+    setSavedConfig(config)
+    warmStartRef.current = []
+  }
+
+  function handleClearConfig() {
+    setSavedConfig(null)
+    warmStartRef.current = []
+    window.location.hash = ''
+  }
+
+  const saveCode = talmidim.length > 0 ? encodeConfig(talmidim, assignment) : ''
+  const saveUrl = talmidim.length > 0
+    ? `${window.location.origin}${window.location.pathname}#c=${saveCode}`
+    : ''
+
   return (
     <div className="min-h-full p-4 md:p-6 max-w-[1600px] mx-auto space-y-4">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-2">
@@ -109,7 +158,20 @@ export default function App() {
             Algoritmo en vivo basado en preferencias, equidad y mezcla de kitot.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {savedConfig && (
+            <span className="flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-2.5 py-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+              Config cargada
+              <button
+                onClick={handleClearConfig}
+                className="ml-0.5 text-emerald-500 hover:text-emerald-800 leading-none"
+                title="Limpiar configuración"
+              >
+                ×
+              </button>
+            </span>
+          )}
           <a
             href={`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`}
             target="_blank"
@@ -121,9 +183,22 @@ export default function App() {
           <button
             onClick={load}
             disabled={loading}
-            className="px-3 py-1.5 text-sm bg-slate-800 text-white rounded-lg hover:bg-slate-900 disabled:opacity-50"
+            className="px-3 py-1.5 text-sm bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 disabled:opacity-50"
           >
             {loading ? 'Cargando…' : 'Refrescar datos'}
+          </button>
+          <button
+            onClick={() => setShowPanel(true)}
+            className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 border border-slate-200"
+          >
+            Cargar config
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={talmidim.length === 0}
+            className="px-3 py-1.5 text-sm bg-slate-800 text-white rounded-lg hover:bg-slate-900 disabled:opacity-50"
+          >
+            Guardar
           </button>
         </div>
       </header>
@@ -185,6 +260,15 @@ export default function App() {
       <footer className="pt-6 text-xs text-slate-400 text-center">
         Verde: 4-5 (top elección) · Amarillo: 3 (neutral) · Rojo: 1-2 (perjudicado)
       </footer>
+
+      {showPanel && (
+        <SaveLoadPanel
+          currentUrl={saveUrl}
+          currentCode={saveCode}
+          onLoad={handleLoadConfig}
+          onClose={() => setShowPanel(false)}
+        />
+      )}
     </div>
   )
 }

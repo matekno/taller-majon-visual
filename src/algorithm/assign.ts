@@ -36,6 +36,7 @@ function greedyInitial(talmidim: Talmid[]): Assignment {
 
 export type AssignOptions = {
   warmStart?: Assignment
+  pinned?: boolean[]
   maxPasses?: number
   seed?: number
 }
@@ -62,6 +63,7 @@ export function solveAssignment(
     shuffleInPlace(order, rand)
 
     for (const i of order) {
+      if (options.pinned?.[i]) continue
       const original = assignment[i]
       let bestTaller = original
       let bestScore = currentScore
@@ -88,6 +90,7 @@ export function solveAssignment(
       for (let b = a + 1; b < swapOrder.length; b++) {
         const i = swapOrder[a]
         const j = swapOrder[b]
+        if (options.pinned?.[i] || options.pinned?.[j]) continue
         if (assignment[i] === assignment[j]) continue
         const ti = assignment[i]
         const tj = assignment[j]
