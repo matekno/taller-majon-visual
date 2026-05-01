@@ -11,6 +11,7 @@ import { TallerColumn } from './components/TallerColumn'
 import { TalmidCard } from './components/TalmidCard'
 import { StatsPanel } from './components/StatsPanel'
 import { SaveLoadPanel } from './components/SaveLoadPanel'
+import { ReportPage } from './components/ReportPage'
 import { buildKitaColorMap } from './utils/colors'
 import { encodeConfig, decodeConfig, buildReconciled } from './utils/configCode'
 import type { SavedConfig } from './utils/configCode'
@@ -25,7 +26,28 @@ function readConfigFromHash(): SavedConfig | null {
   return decodeConfig(hash.slice(3))
 }
 
+function isReportRoute(): boolean {
+  return window.location.pathname.replace(/\/+$/, '').endsWith('/reporte')
+}
+
+function homePath(): string {
+  const path = window.location.pathname
+  if (!isReportRoute()) return path.endsWith('/') ? path : `${path}/`
+  const base = path.replace(/\/?reporte\/?$/, '/')
+  return base || '/'
+}
+
+function reportPath(): string {
+  const base = homePath()
+  return base.endsWith('/') ? `${base}reporte` : `${base}/reporte`
+}
+
 export default function App() {
+  if (isReportRoute()) return <ReportPage homePath={homePath()} />
+  return <AssignmentApp />
+}
+
+function AssignmentApp() {
   const [talmidim, setTalmidim] = useState<Talmid[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -179,6 +201,12 @@ export default function App() {
             className="text-xs text-slate-500 hover:text-slate-800 underline"
           >
             Ver sheet
+          </a>
+          <a
+            href={reportPath()}
+            className="px-3 py-1.5 text-sm bg-white text-slate-700 rounded-lg hover:bg-slate-100 border border-slate-200"
+          >
+            Reporte
           </a>
           <button
             onClick={load}
