@@ -1,9 +1,12 @@
 import { parseScore } from '../utils/parseScore'
 import type { Talmid } from './types'
 
-export const SHEET_ID = '1No-_sY4FESbcme3PbXg0TMpk5r0FRYQcBDKKITVyjsw'
+export const SHEET_ID = '1i69-AEB33pjphLjFnvhnQmC7dVDb1STCa1njm-U3i5s'
 
-const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`
+// headers=1 fuerza a gviz a tratar la fila 1 como encabezado. Sin esto, con el sheet
+// vacío (0 respuestas) gviz no la detecta y devuelve el encabezado como si fuera un
+// talmid llamado "Nombre completo".
+const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1`
 
 type GvizCell = { v?: unknown; f?: string } | null
 type GvizRow = { c: GvizCell[] }

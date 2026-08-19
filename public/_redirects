@@ -1,0 +1,5 @@
+# La ruta /reporte es client-side: no existe como archivo en dist/.
+# Sin esta regla Netlify devuelve su 404 en vez de bootear la app.
+# El 200 es un rewrite (no un redirect): la URL en la barra queda intacta,
+# que es lo que App.tsx necesita para leer location.pathname.
+/*    /index.html   200
