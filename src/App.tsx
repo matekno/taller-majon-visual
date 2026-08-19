@@ -13,6 +13,7 @@ import { StatsPanel } from './components/StatsPanel'
 import { SaveLoadPanel } from './components/SaveLoadPanel'
 import { ReportPage } from './components/ReportPage'
 import { buildKitaColorMap } from './utils/colors'
+import { buildHistorialMap } from './utils/historialMatch'
 import { encodeConfig, decodeConfig, buildReconciled } from './utils/configCode'
 import type { SavedConfig } from './utils/configCode'
 
@@ -136,6 +137,18 @@ function AssignmentApp() {
     [talmidim],
   )
 
+  // Quién estuvo en qué taller en la etapa 1. Solo depende de los nombres,
+  // así que no se recalcula cuando cambia la asignación.
+  const historialMap = useMemo(() => buildHistorialMap(talmidim), [talmidim])
+
+  const totalRepiten = useMemo(() => {
+    let n = 0
+    for (let i = 0; i < talmidim.length; i++) {
+      if (historialMap.get(talmidim[i].id)?.tallerIndex === assignment[i]) n++
+    }
+    return n
+  }, [talmidim, assignment, historialMap])
+
   const groupedByTaller = useMemo(() => {
     const groups: Array<Array<{ talmid: Talmid; idx: number }>> = TALLERES.map(() => [])
     for (let i = 0; i < talmidim.length; i++) {
@@ -238,8 +251,23 @@ function AssignmentApp() {
       )}
 
       {lastFetch && (
-        <div className="text-xs text-slate-500">
-          {talmidim.length} respuestas · última actualización {lastFetch.toLocaleTimeString()}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <span>
+            {talmidim.length} respuestas · última actualización {lastFetch.toLocaleTimeString()}
+          </span>
+          {talmidim.length > 0 && (
+            <span
+              className={`rounded-full border px-2 py-0.5 font-medium ${
+                totalRepiten > 0
+                  ? 'bg-rose-50 border-rose-200 text-rose-700'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              }`}
+            >
+              {totalRepiten > 0
+                ? `↻ ${totalRepiten} ${totalRepiten === 1 ? 'repite' : 'repiten'} taller de la etapa 1`
+                : '✓ nadie repite taller de la etapa 1'}
+            </span>
+          )}
         </div>
       )}
 
@@ -258,6 +286,7 @@ function AssignmentApp() {
               tallerIndex={i}
               talmidim={groupedByTaller[i] || []}
               kitaColorMap={kitaColorMap}
+              historialMap={historialMap}
             />
           ))}
         </div>
@@ -272,6 +301,7 @@ function AssignmentApp() {
                   talmid={t}
                   assignedTaller={taller}
                   kitaStyle={kitaColorMap.get(t.kita) ?? DEFAULT_KITA_STYLE}
+                  historialHit={historialMap.get(t.id)}
                 />
               </div>
             )
@@ -287,6 +317,9 @@ function AssignmentApp() {
 
       <footer className="pt-6 text-xs text-slate-400 text-center">
         Verde: 4-5 (top elección) · Amarillo: 3 (neutral) · Rojo: 1-2 (perjudicado)
+        <br />
+        ↻ marca a quien vuelve al mismo taller de la etapa 1 · el relojito de cada
+        columna muestra quiénes ya pasaron por ahí
       </footer>
 
       {showPanel && (
